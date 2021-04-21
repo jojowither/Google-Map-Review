@@ -1,0 +1,4 @@
+.python-version
+.DS_Store
+src/__pycache__/googlemaps.cpython-38.pyc
+src/gm-scraper.log
