@@ -5,6 +5,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import Select
 from bs4 import BeautifulSoup
 from datetime import datetime
 import time
@@ -16,6 +17,7 @@ GM_WEBPAGE = 'https://www.google.com/maps/'
 MAX_WAIT = 10
 MAX_RETRY = 5
 MAX_SCROLLS = 40
+SCROLL_PAUSE_TIME = 0.5
 
 class GoogleMapsScraper:
 
@@ -48,7 +50,7 @@ class GoogleMapsScraper:
                 #if not self.debug:
                 #    menu_bt = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div.cYrDcjyGO77__container')))
                 #else:
-                menu_bt = wait.until(EC.element_to_be_clickable((By.XPATH, '//button[@data-value=\'Sort\']')))
+                menu_bt = wait.until(EC.element_to_be_clickable((By.XPATH, '//button[@data-value=\'排序\']')))
                 menu_bt.click()
 
                 clicked = True
@@ -78,7 +80,7 @@ class GoogleMapsScraper:
         # wait for other reviews to load (ajax)
         time.sleep(4)
 
-        self.__scroll()
+        self.__review_scroll()
 
 
         # expand review text
@@ -202,11 +204,29 @@ class GoogleMapsScraper:
         time.sleep(2)
 
 
-    def __scroll(self):
+    def __review_scroll(self):
         scrollable_div = self.driver.find_element_by_css_selector("div.section-layout.section-scrollbox.mapsConsumerUiCommonScrollable__scrollable-y.mapsConsumerUiCommonScrollable__scrollable-show")
         
         self.driver.execute_script('arguments[0].scrollTop = arguments[0].scrollHeight', scrollable_div)
         # self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+
+
+    def __place_scroll(self):
+        scrollable_div = self.driver.find_element_by_css_selector('div.section-layout.section-scrollbox.mapsConsumerUiCommonScrollable__scrollable-y.mapsConsumerUiCommonScrollable__scrollable-show.section-layout-flex-vertical:first-child')
+        last_height = self.driver.execute_script('return arguments[0].scrollHeight', scrollable_div)
+
+        while True:
+            # Scroll down to bottom
+            self.driver.execute_script('arguments[0].scrollTop = arguments[0].scrollHeight', scrollable_div)
+
+            # Wait to load page
+            time.sleep(SCROLL_PAUSE_TIME)
+
+            # Calculate new scroll height and compare with last scroll height
+            new_height = self.driver.execute_script('return arguments[0].scrollHeight', scrollable_div)
+            if new_height == last_height:
+                break
+            last_height = new_height
 
 
     def __get_logger(self):
@@ -239,7 +259,7 @@ class GoogleMapsScraper:
             options.add_argument("--window-size=1366,768")
 
         options.add_argument("--disable-notifications")
-        options.add_argument("--lang=en-GB")
+        # options.add_argument("--lang=en-GB")
         input_driver = webdriver.Chrome(chrome_options=options)
 
         return input_driver
@@ -249,3 +269,44 @@ class GoogleMapsScraper:
     def __filter_string(self, str):
         strOut = str.replace('\r', ' ').replace('\n', ' ').replace('\t', ' ')
         return strOut
+
+
+    def search_place(self, query):
+        self.driver.get(GM_WEBPAGE)
+        wait = WebDriverWait(self.driver, MAX_WAIT)
+
+        search_field = wait.until(EC.visibility_of_element_located((By.XPATH, '//*[@id="searchboxinput"]')))
+        search_field.clear()
+        search_field.send_keys(query)
+        search_field.send_keys(Keys.RETURN)
+        time.sleep(3)
+        return 0
+
+
+    def get_all_place(self, query):
+
+        time.sleep(4)
+        self.__place_scroll()
+
+        urls_dict = {}
+        # parse reviews
+        response = BeautifulSoup(self.driver.page_source, 'html.parser')
+        rblock = response.find_all('a', class_='place-result-container-place-link')
+        for review in rblock:
+            place_name = review['aria-label']
+            url = review['href']
+            urls_dict[place_name] = url
+
+        urls_dict = self.__clean_noise_place(urls_dict, query)
+        return urls_dict
+
+
+    def __clean_noise_place(self, urls_dict, query):
+        for place in urls_dict.copy().keys():
+            if query not in place:
+                del urls_dict[place]
+        return urls_dict
+        
+
+
+
