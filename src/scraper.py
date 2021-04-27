@@ -29,7 +29,6 @@ def csv_writer(source_field, ind_sort_by, path='../data/'):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Google Maps reviews scraper.')
     parser.add_argument('--N', type=int, default=100, help='Number of reviews to scrape')
-    parser.add_argument('--i', type=str, default='../urls.txt', help='target URLs file')
     parser.add_argument('--q', type=str, default='../query.txt', help='query file')
     parser.add_argument('--sort_by', type=str, default='newest', help='sort by most_relevant, newest, highest_rating or lowest_rating')
     parser.add_argument('--place', dest='place', action='store_true', help='Scrape place metadata')
@@ -54,6 +53,7 @@ if __name__ == '__main__':
                 for place, url in urls_dict.items():
                     error = scraper.sort_by(url, ind[args.sort_by])
                     print(error)
+                    print(place)
 
                     if error == 0:
                         n = 0
@@ -73,4 +73,6 @@ if __name__ == '__main__':
                                 writer.writerow(row_data)
 
                             n += len(reviews)
+
+        print('Finish!')
 
