@@ -18,5 +18,5 @@ def import_content(filepath):
 
 
 if __name__ == "__main__":
-    filepath = '../data/newest_gm_reviews.csv' 
+    filepath = '../data/newest_gm_reviews_with_sent.csv' 
     import_content(filepath)
